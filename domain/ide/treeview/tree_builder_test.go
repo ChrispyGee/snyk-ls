@@ -1599,6 +1599,56 @@ func TestBuildTree_DisabledScanner_TooltipVariesByReason(t *testing.T) {
 		}
 	})
 
+	t.Run("disabled at the organization names the organization and where it came from", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			setByUser   bool
+			wantSource  string
+			notWantText string
+		}{
+			{name: "auto-selected", setByUser: false, wantSource: "auto-selected", notWantText: "chosen in settings"},
+			{name: "chosen in settings", setByUser: true, wantSource: "chosen in settings", notWantText: "auto-selected"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				builder := newBuilderWithCompletedScans()
+				builder.SetProductScanErrors(map[types.FilePath]map[product.Product]string{
+					"/project": {product.ProductCode: utils.ErrSnykCodeNotEnabled},
+				})
+				data := builder.BuildTreeFromFolderData([]FolderData{{
+					FolderPath: "/project", FolderName: "project",
+					SupportedIssueTypes:   map[product.FilterableIssueType]bool{product.FilterableIssueTypeCodeSecurity: true},
+					Organization:          "my-org-slug",
+					OrganizationSetByUser: tt.setByUser,
+				}})
+
+				node := findChildByProduct(data.Nodes, product.ProductCode)
+				require.NotNil(t, node)
+				assert.Contains(t, node.Tooltip, "my-org-slug")
+				assert.Contains(t, node.Tooltip, tt.wantSource)
+				assert.NotContains(t, node.Tooltip, tt.notWantText)
+				// the existing guidance must stay
+				assert.Contains(t, node.Tooltip, "disabled for your Snyk organization")
+				assert.Contains(t, node.Tooltip, "org admin")
+			})
+		}
+	})
+
+	t.Run("disabled at the organization without a known organization keeps the generic message", func(t *testing.T) {
+		builder := newBuilderWithCompletedScans()
+		builder.SetProductScanErrors(map[types.FilePath]map[product.Product]string{
+			"/project": {product.ProductCode: utils.ErrSnykCodeNotEnabled},
+		})
+		data := builder.BuildTreeFromFolderData([]FolderData{{
+			FolderPath: "/project", FolderName: "project",
+			SupportedIssueTypes: map[product.FilterableIssueType]bool{product.FilterableIssueTypeCodeSecurity: true},
+		}})
+
+		node := findChildByProduct(data.Nodes, product.ProductCode)
+		require.NotNil(t, node)
+		assert.Equal(t, "Code Security is disabled for your Snyk organization. Contact your org admin if you expected it to be available.", node.Tooltip)
+	})
+
 	t.Run("disabled for this folder reuses the settings message", func(t *testing.T) {
 		// Folder config is part of plugin settings, so a folder-level disable shows
 		// the same tooltip as the product toggle being off.

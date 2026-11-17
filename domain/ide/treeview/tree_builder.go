@@ -48,6 +48,12 @@ type FolderData struct {
 	// line: when Agent Fix is off we hide the line entirely rather than surface a
 	// fix the user cannot action.
 	AgentFixEnabled bool
+	// Organization is the organization this folder is scanned against (ID or slug,
+	// as resolved from folder and global config). Empty when unknown.
+	Organization string
+	// OrganizationSetByUser is true when the user chose the organization in the
+	// plugin settings, and false when it was auto-selected.
+	OrganizationSetByUser bool
 }
 
 // fileIconProvider is satisfied by issue data types that can supply a file-node icon
